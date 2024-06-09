@@ -1,0 +1,43 @@
+{
+    "name": "yassinedabbous/laravel-dynamic-fields",
+    "description": "Select only what you need",
+    "type": "library",
+    "license": "MIT",
+    "homepage": "https://github.com/YassineDabbous/laravel-dynamic-fields",
+    "authors": [
+        {
+            "name": "Yassine Dabbous",
+            "email": "yassine.dabbous@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "keywords": ["laravel", "dynamic select", "dynamic fields", "dynamic columns", "selective columns"],
+    "require": {
+        "php": ">=7.4",
+        "laravel/framework": "^5.5|^6.0|^7.0|^8.0|^9.0|^10.0|^11.0"
+    },
+    "require-dev": {
+      "orchestra/testbench": "^9.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "YassineDabbous\\DynamicFields\\": "src/"
+        }
+    },
+    "autoload-dev": {
+      "psr-4": {
+        "YassineDabbous\\DynamicFields\\Tests\\": "tests/"
+      }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "YassineDabbous\\DynamicFields\\DynamicFieldsServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+      "test": "vendor/bin/phpunit"
+    }
+}
