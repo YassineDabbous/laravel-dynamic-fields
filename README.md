@@ -1,7 +1,7 @@
 
 # Laravel Dynamic Fields 
 
-Reduce the overall size of your SQL query by selecting only what you need.
+Make your API simple & Reduce the overall size of your SQL query by selecting only what you need.
 
 ### ✨ Features 
 
@@ -17,7 +17,7 @@ automatically via a single URL parameter: **_fields**
 
     composer require yassinedabbous/laravel-dynamic-fields
     
-### 🧑‍💻  Basic Setup
+### 🧑‍💻  Setup
 
 Add **HasDynamicFields** trait to your Model class and define your columns:
 
@@ -27,6 +27,7 @@ use YassineDabbous\DynamicFields\HasDynamicFields;
 class User extends Model
 {
     use HasDynamicFields;
+    
 
     /** Allowed table columns */
     public function dynamicColumns(): array
@@ -34,12 +35,39 @@ class User extends Model
         return ['id', 'name', 'avatar', 'birthday', 'created_at'];
     }
 
+    public function dynamicRelations(){
+        return ['posts', 'recent_comments'];
+    }
+
 	/** Appends and their dependencies */
     public function dynamicAppendsDepsColumns() { 
         return [
             'age' => 'birthday',
-		 ];
+        ];
 	}
+
+    /** aggregates closures */
+    public function dynamicAggregates(){
+        return [
+            'posts_count' => fn($q) => $q->withCount('posts'),
+            'points' => fn($q) => $q->withSum('matches', 'score'),
+        ];
+    }
+
+
+
+    // Model attributes & relations ...
+
+    public function age(): Attribute
+    {
+        return Attribute::get(fn() => Carbon::parse($this->birthdate)->age);
+    }
+    
+    public function comments()
+    {
+        return $this->hasMany(Comment::class);
+    }
+
 }
 ```
 
@@ -50,7 +78,7 @@ class UserController
 {
     public function index()
     {
-        $collection = User::dynamicSelect()->paginate(); 
+        $collection = User::dynamicSelect()->paginate();
         $collection->dynamicAppend();
         return $collection;
     }
@@ -59,17 +87,25 @@ class UserController
 ### 🧑‍💻 Usage
 • API call: 
 
-	GET /users?fields=id,name,age
+	GET /users?fields=id,name,age,points,recent_comments
 	
 • DB query:
 
+    // select only "id", "name"
 	SELECT "id", "name" FROM "users"
 
+    // aggregates
+	SELECT SUM("score") FROM "matches" where ...
 
-• Response: ("age" appended automatically)
+    // relation loaded
+	SELECT * FROM "comments" where "date" > ...
 
-		{
-			"id": 1,
-			"name": "Someone",
-			"age": 99,
-		}
+• Response: ("age", "points", "recent comments" are automatically appended)
+
+    {
+        "id": 1,
+        "name": "Someone",
+        "age": 99,
+        "points": 1048,
+        "recent_comments": {...}
+    }
