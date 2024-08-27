@@ -5,45 +5,56 @@ namespace YassineDabbous\DynamicFields;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 
 trait HasDynamicFields{
-    
+
+    use RelationsFinder;
     /**
      * all selectable table columns
      */
-    public function dynamicColumns(){
+    public function dynamicColumns(): array {
         return []; // 'id', 'account_id', 'name', 'icon'
     }
+
 
     /**
      * all visible relations
      */
-    public function dynamicRelations(){
-        return [];
+    public function dynamicRelations(): array{
+        // return [
+        //     'account',
+        //      'posts' => 'user_id', // status_name depends on 'status' relation
+        //      'icon_url' => ['icon', 'disk'], // icon_url depends on 'icon' and 'disk' columns
+        // ];
+        return $this->guessRelations();
     }
 
     /**
-     * all visible appends with their columns dependencies
+     * all visible appends with their dependencies
      */
-    public function dynamicAppendsDepsColumns(){
+    public function dynamicAppends(): array{
         return [
-            // 'icon_url' => 'icon' // icon_url depends on 'icon' columns
+            // 'full_name',
+            //  'status_name' => 'status' // status_name depends on 'status' relation
+            //  'icon_url' => ['icon', 'disk'] // icon_url depends on 'icon' and 'disk' columns
         ];
     }
 
-    /**
-     * all visible appends with their relations dependencies
-     */
-    public function dynamicAppendsDepsRelations(){
-        return [
-            // 'status_name' => 'status' // status_name depends on 'status' Relation
-        ];
-    }
-
-
-    public function dynamicAggregates(){
+    public function dynamicAggregates(): array{
         return [
             // 'employees_count' => fn($q) => $q->withCount('employees'),
             // 'employees_sum_salary' => fn($q) => $q->withSum('employees', 'salary'),
         ];
+    }
+
+    public function fixArray($array){
+        $arr = [];
+        foreach($array as $k => $v){
+            if(is_int($k)){
+                $arr[$v] = null;
+            } else {
+                $arr[$k] = $v;
+            }
+        }
+        return $arr;
     }
 
 
@@ -56,55 +67,92 @@ trait HasDynamicFields{
         if(count($list)==0){
             return $q;
         }
-
-        if(count($this->dynamicColumns())){
-            $deps = [];
-            if(count($this->dynamicAppendsDepsColumns())){
-                $appends = array_intersect(array_keys($this->dynamicAppendsDepsColumns()), $list);
-                $filtered = array_filter(
-                    $this->dynamicAppendsDepsColumns(),
-                    fn ($key) => in_array($key, $appends),
-                    ARRAY_FILTER_USE_KEY
-                );
-                $deps = array_values($filtered);
-            }
-            $columns = [
-                ...array_intersect($this->dynamicColumns(), $list), 
-                ...array_intersect($this->dynamicColumns(), $deps)
-            ];
-            // \Log::debug($columns);
-            if(count($columns)){
-                 $q->select(array_unique($columns));
-            }
-        }
-
-
-        if(count($this->dynamicRelations())){
-            $deps = [];
-            if(count($this->dynamicAppendsDepsRelations())){
-                $appends = array_intersect(array_keys($this->dynamicAppendsDepsRelations()), $list);
-                $filtered = array_filter(
-                    $this->dynamicAppendsDepsRelations(),
-                    fn ($key) => in_array($key, $appends),
-                    ARRAY_FILTER_USE_KEY
-                );
-                $deps = array_values($filtered);
-            }
-            $relations = [
-                ...array_intersect($this->dynamicRelations(), $list), 
-                ...array_intersect($this->dynamicRelations(), $deps)
-            ];
-            // \Log::debug($relations);
-            if(count($relations)){
-                $q->with(array_unique($relations));
-            }
-        }
+        
+        $dynamicAppends = $this->fixArray($this->dynamicAppends());
+        $dynamicAppendsNames = array_keys($dynamicAppends);
 
         
-        if(count($this->dynamicAggregates())){
-            $cals = array_intersect(array_keys($this->dynamicAggregates()), $list);
-            foreach ($cals as $value) {
-                $this->dynamicAggregates()[$value]($q);
+        // adding appends dependencies to the list.
+        if(count($dynamicAppendsNames)){
+            $requestedAppends = array_intersect($dynamicAppendsNames, $list);
+            $filtered = array_filter(
+                $dynamicAppends,
+                fn ($key) => in_array($key, $requestedAppends),
+                ARRAY_FILTER_USE_KEY
+            );
+            foreach($filtered as $deps){
+                if(is_null($deps)){
+                    continue;
+                }
+                if(is_array($deps)){
+                    foreach ($deps as $dep) {
+                        $list[] = $dep;
+                    }
+                } else {
+                    $list[] = $deps;
+                }
+            }
+        }
+        
+
+        $dynamicRelations = $this->fixArray($this->dynamicRelations());
+        $dynamicRelationsNames = array_keys($dynamicRelations);
+        $requestedRelations = array_intersect($dynamicRelationsNames, $list);
+
+        
+        // adding appends dependencies to the list.
+        if(count($dynamicRelationsNames)){
+            $filtered = array_filter(
+                $dynamicRelations,
+                fn ($key) => in_array($key, $requestedRelations),
+                ARRAY_FILTER_USE_KEY
+            );
+            foreach($filtered as $deps){
+                if(is_null($deps)){
+                    continue;
+                }
+                if(is_array($deps)){
+                    foreach ($deps as $dep) {
+                        $list[] = $dep;
+                    }
+                } else {
+                    $list[] = $deps;
+                }
+            }
+        }
+
+
+        if(count($requestedRelations)){
+            $q->with(array_unique($requestedRelations));
+        }
+        
+        
+        $dynamicAggregatesNames = array_keys($this->dynamicAggregates());
+
+        if(!in_array('*', $list)){
+            if(count($this->dynamicColumns())){
+                $requestedColumns = array_intersect($this->dynamicColumns(), $list);
+            } else {
+                $x = [
+                    ...$dynamicRelationsNames,
+                    ...$dynamicAggregatesNames,
+                    ...$dynamicAppendsNames
+                ];
+                $requestedColumns = array_diff($list, $x);
+            }
+
+            
+            if(count($requestedColumns)){
+                 $q->select(array_unique($requestedColumns));
+            }
+        }
+
+
+        // aggregations need to be called after select  
+        if(count($dynamicAggregatesNames)){
+            $requestedAggregates = array_intersect($dynamicAggregatesNames, $list);
+            foreach ($requestedAggregates as $aggr) {
+                $this->dynamicAggregates()[$aggr]($q);
             }
         }
 
@@ -114,7 +162,9 @@ trait HasDynamicFields{
 
     /** Append only requests fields. */
     public function dynamicAppend(array $list = []) {
-        $columns = array_intersect(array_keys($this->dynamicAppendsDepsColumns()), $list);
+        // $this->setVisible($list);
+        $dynamicAppends = $this->fixArray($this->dynamicAppends());
+        $columns = array_intersect(array_keys($dynamicAppends), $list);
         $this->setAppends($columns);
     }
 }
