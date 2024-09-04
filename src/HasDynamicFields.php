@@ -3,6 +3,7 @@
 namespace YassineDabbous\DynamicFields;
 
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Illuminate\Http\Request;
 
 trait HasDynamicFields{
 
@@ -59,8 +60,9 @@ trait HasDynamicFields{
 
 
     /** Select only requested fields. */
-    public function scopeDynamicSelect(EloquentBuilder $q) {
-        $list = request()->input('_fields', []);
+    public function scopeDynamicSelect(EloquentBuilder $q, ?Request $request = null) {
+        $request ??= request();
+        $list = $request->input('_fields', []);
         if (is_string($list)) {
             $list = explode(',', $list);
         }
@@ -161,10 +163,18 @@ trait HasDynamicFields{
 
 
     /** Append only requests fields. */
-    public function dynamicAppend(array $list = []) {
-        // $this->setVisible($list);
-        $dynamicAppends = $this->fixArray($this->dynamicAppends());
-        $columns = array_intersect(array_keys($dynamicAppends), $list);
-        $this->setAppends($columns);
+    public function dynamicAppend(array $list = [], ?Request $request = null) {
+        if(!count($list)){
+            $list = ($request ?? request())->input('_fields', []);
+            if (is_string($list)) {
+                $list = explode(',', $list);
+            }
+        }
+        if(count($list)){
+            $this->setVisible($list);
+            $dynamicAppends = $this->fixArray($this->dynamicAppends());
+            $columns = array_intersect(array_keys($dynamicAppends), $list);
+            $this->setAppends($columns);
+        }
     }
 }
