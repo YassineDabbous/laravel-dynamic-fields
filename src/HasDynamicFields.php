@@ -52,8 +52,13 @@ trait HasDynamicFields{
 
     /**
      * Model Aggregates as Closures.
+     * Values can be: Closure, named scope, NULL.
+     * Keys with an empty value will be treated as a named scope.
+     * 
      * Example:
      *      return [
+     *          'custom'                => null,                    // equal to ->custom() scope
+     *          'another_custom'        => 'named_scope',           // equal to ->namedScope() scope
      *          'employees_count'       => fn($q) => $q->withCount('employees'),
      *          'employees_sum_salary'  => fn($q) => $q->withSum('employees', 'salary'),
      *      ];
@@ -189,8 +194,23 @@ trait HasDynamicFields{
         // *Aggregates must be called after selection
         if(count($dynamicAggregatesNames)){
             $requestedAggregates = array_intersect($dynamicAggregatesNames, $list);
-            foreach ($requestedAggregates as $aggr) {
-                $this->dynamicAggregates()[$aggr]($q);
+            foreach ($requestedAggregates as $key) {
+                $value = $this->dynamicAggregates()[$key];
+                if(is_null($value)){
+                    if($this->hasNamedScope(\Str::camel($key))){ 
+                        $this->callNamedScope(\Str::camel($key), [$q]);
+                    }
+                    continue;
+                }
+                if(is_string($value)){
+                    if($this->hasNamedScope(\Str::camel($value))){ 
+                        $this->callNamedScope(\Str::camel($value), [$q]);
+                    }
+                    continue;
+                }
+                if($value instanceof \Closure){
+                    $value($q);
+                }
             }
         }
 
