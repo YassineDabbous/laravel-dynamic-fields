@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 trait HasDynamicFields{
 
+    use HasDynamicCore;
     use RelationsFinder;
 
     protected $deepFields = [];
@@ -63,11 +64,12 @@ trait HasDynamicFields{
 
 
     /** Append only requests fields. */
-    public function dynamicAppend(array $fields = []) {
+    public function dynamicAppend(array $fields = [], array $ignore = []) {
         $list = $this->parseFields($fields);
+        $list = array_diff($list, $ignore);
         if(count($list)){
             $this->setVisible($list);
-            $dynamicAppends = $this->fixArray($this->dynamicAppends());
+            $dynamicAppends = $this->toAssociative($this->dynamicAppends());
             $columns = array_intersect(array_keys($dynamicAppends), $list);
             if(count($columns)){
                 $this->setAppends($columns);
@@ -89,13 +91,14 @@ trait HasDynamicFields{
 
 
     /** Select requested columns, eager load relations and call aggregates. */
-    public function scopeDynamicSelect(Builder $q, array $fields = []) {
+    public function scopeDynamicSelect(Builder $q, array $fields = [], array $ignore = []): Builder {
         $list = $this->parseFields($fields);
+        $list = array_diff($list, $ignore);
         if(count($list)==0){
             return $q;
         }
         
-        $dynamicAppends = $this->fixArray($this->dynamicAppends());
+        $dynamicAppends = $this->toAssociative($this->dynamicAppends());
         $dynamicAppendsNames = array_keys($dynamicAppends);
 
         
@@ -122,7 +125,7 @@ trait HasDynamicFields{
         }
         
 
-        $dynamicRelations = $this->fixArray($this->dynamicRelations());
+        $dynamicRelations = $this->toAssociative($this->dynamicRelations());
         $dynamicRelationsNames = array_keys($dynamicRelations);
         $requestedRelations = array_intersect($dynamicRelationsNames, $list);
 
@@ -161,8 +164,8 @@ trait HasDynamicFields{
             }
         }
         
-        
-        $dynamicAggregatesNames = array_keys($this->dynamicAggregates());
+        $dynamicAggregates = $this->toAssociative($this->dynamicAggregates());
+        $dynamicAggregatesNames = array_keys($dynamicAggregates);
 
         if(!in_array('*', $list)){
             if(count($this->dynamicColumns())){
@@ -195,18 +198,6 @@ trait HasDynamicFields{
     }
 
     
-    /** Indexed to Associative Array */
-    public function fixArray($array): array{
-        $arr = [];
-        foreach($array as $k => $v){
-            if(is_int($k)){
-                $arr[$v] = null;
-            } else {
-                $arr[$k] = $v;
-            }
-        }
-        return $arr;
-    }
 
     public function parseFields(array $fields = []): array {
         $fields = count($fields) ? $fields : request()->input('_fields', []);
