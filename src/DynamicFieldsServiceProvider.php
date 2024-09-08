@@ -14,45 +14,40 @@ class DynamicFieldsServiceProvider extends ServiceProvider
     public function boot()
     {        
         // dynamic fields macro
-        $macro = function () {
-            $list = request()->input('_fields', []);
-            if (is_string($list)) {
-                $list = explode(',', $list);
+        $macro = function (array $fields = [], array $ignore = []) {
+            foreach ($this as $model) {
+                $model->dynamicAppend($fields, $ignore);
             }
-            // if(count($list)==0){
-            //     return $this;
-            // }
-            foreach ($this as $key => $value) {
-                $value->dynamicAppend($list);
-            }
-            // return $this;
         };
 
         Collection::macro('dynamicAppend', $macro);
 
 
         //  Pagination Marco
-        $macro = function (int $maxResults = null, int $defaultSize = null) {
-            $maxResults = $maxResults ?? 30;
-            $defaultSize = $defaultSize ?? 10;
+        $macro = function (?int $maxPerPage = null, bool $allowGet = true, $columns = ['*'], $pageName = 'page', $page = null, $total = null) {
             $request = request();
+            /** @var \Illuminate\Database\Eloquent\Builder $this  */
+            if($allowGet && $request->input('_get_all', false)){
+                $this->get($columns);
+            }
+
+            $maxPerPage ??= 30;
+            $defaultSize = 10;
             $size = (int) $request->input('per_page', $defaultSize);
             if ($size <= 0) {
                 $size = $defaultSize;
             }
-            if ($size > $maxResults) {
-                $size = $maxResults;
+            if ($size > $maxPerPage) {
+                $size = $maxPerPage;
             }
-            if($request->list_all == true){
-                $this->get();
-            }
-            return $request->input('page', 0) == 1 ? $this->paginate($size) : $this->simplePaginate($size);
+
+            return $request->input($pageName, 0) == 1 ? $this->paginate($size, $columns, $pageName, $page, $total) : $this->simplePaginate($size, $columns, $pageName, $page);
         };
 
-        EloquentBuilder::macro('superPaginate', $macro);
-        BaseBuilder::macro('superPaginate', $macro);
-        BelongsToMany::macro('superPaginate', $macro);
-        HasManyThrough::macro('superPaginate', $macro);
+        EloquentBuilder::macro('dynamicPaginate', $macro);
+        BaseBuilder::macro('dynamicPaginate', $macro);
+        BelongsToMany::macro('dynamicPaginate', $macro);
+        HasManyThrough::macro('dynamicPaginate', $macro);
     }
 
 
