@@ -109,55 +109,21 @@ trait HasDynamicFields{
         
         // add Appends dependencies to the list.
         if(count($dynamicAppendsNames)){
-            $requestedAppends = array_intersect($dynamicAppendsNames, $list);
-            $filtered = array_filter(
-                $dynamicAppends,
-                fn ($key) => in_array($key, $requestedAppends),
-                ARRAY_FILTER_USE_KEY
-            );
-            foreach($filtered as $deps){
-                if(is_null($deps)){
-                    continue;
-                }
-                if(is_array($deps)){
-                    foreach ($deps as $dep) {
-                        $list[] = $dep;
-                    }
-                } else {
-                    $list[] = $deps;
-                }
-            }
+            $list = $this->recursiveDependencies($dynamicAppends, $list);
         }
         
 
         $dynamicRelations = $this->toAssociative($this->dynamicRelations());
         $dynamicRelationsNames = array_keys($dynamicRelations);
-        $requestedRelations = array_intersect($dynamicRelationsNames, $list);
 
         
         // add Relations dependencies to the list.
         if(count($dynamicRelationsNames)){
-            $filtered = array_filter(
-                $dynamicRelations,
-                fn ($key) => in_array($key, $requestedRelations),
-                ARRAY_FILTER_USE_KEY
-            );
-            foreach($filtered as $deps){
-                if(is_null($deps)){
-                    continue;
-                }
-                if(is_array($deps)){
-                    foreach ($deps as $dep) {
-                        $list[] = $dep;
-                    }
-                } else {
-                    $list[] = $deps;
-                }
-            }
+            $list = $this->recursiveDependencies($dynamicRelations, $list);
         }
 
 
-
+        $requestedRelations = array_intersect($dynamicRelationsNames, $list);
         if(count($requestedRelations)){
             $rs = array_unique($requestedRelations);
             foreach ($rs as $r) {
