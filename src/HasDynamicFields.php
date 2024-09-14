@@ -32,7 +32,7 @@ trait HasDynamicFields{
      *     ];
      */
     public function dynamicRelations(): array{
-        return $this->guessRelations();
+        return $this->guessDynamicRelations();
     }
 
 

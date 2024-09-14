@@ -3,7 +3,6 @@
 namespace YassineDabbous\DynamicFields;
 
 use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Support\Collection;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
@@ -16,14 +15,13 @@ trait RelationsFinder
      * Guess relations from methods
      * @return array<string>
      */
-    public function guessRelations(): array
+    public function guessDynamicRelations(): array
     {
         $class = new ReflectionClass($this);
 
         return collect($class->getMethods())
             ->filter(fn (ReflectionMethod $method) => $this->hasRelationReturnType($method))
-            ->map(fn (ReflectionMethod $method) => $method->getName())
-            ->values()
+            ->mapWithKeys(fn (ReflectionMethod $method) => [$method->getName() => $this->guessRelationColumns($method)])
             ->toArray();
     }
 
@@ -48,5 +46,24 @@ trait RelationsFinder
         }
 
         return false;
+    }
+
+    
+    protected function guessRelationColumns(ReflectionMethod $method) 
+    {
+        $relation = $method->invoke($this);
+        return match (true) {
+            is_a($relation, \Illuminate\Database\Eloquent\Relations\MorphOne::class) =>  $relation->getLocalKeyName(),
+            is_a($relation, \Illuminate\Database\Eloquent\Relations\MorphMany::class) => $relation->getLocalKeyName(),
+            is_a($relation, \Illuminate\Database\Eloquent\Relations\MorphTo::class) =>     [$relation->getMorphType(), $relation->getForeignKeyName()],
+            is_a($relation, \Illuminate\Database\Eloquent\Relations\MorphToMany::class) => [$relation->getMorphType(), $relation->getForeignKeyName()],
+            is_a($relation, \Illuminate\Database\Eloquent\Relations\HasOne::class) => $relation->getLocalKeyName(),
+            is_a($relation, \Illuminate\Database\Eloquent\Relations\HasMany::class) => $relation->getLocalKeyName(),
+            is_a($relation, \Illuminate\Database\Eloquent\Relations\HasOneThrough::class) => $relation->getLocalKeyName(),
+            is_a($relation, \Illuminate\Database\Eloquent\Relations\HasManyThrough::class) => $relation->getLocalKeyName(),
+            is_a($relation, \Illuminate\Database\Eloquent\Relations\BelongsTo::class) => $relation->getForeignKeyName(),
+            is_a($relation, \Illuminate\Database\Eloquent\Relations\BelongsToMany::class) => $relation->getParentKeyName(),
+            default => null,
+        };
     }
 }
