@@ -46,7 +46,7 @@ trait HasDynamicFields{
      *   ];
      */
     public function dynamicAppends(): array{
-        return [];
+        return $this->getMutatedAttributes();
     }
 
 

@@ -20,26 +20,30 @@ trait RelationsFinder
         $class = new ReflectionClass($this);
 
         return collect($class->getMethods())
-            ->filter(fn (ReflectionMethod $method) => $this->hasRelationReturnType($method))
+            ->filter(fn (ReflectionMethod $method) => $this->hasReturnType($method, Relation::class))
             ->mapWithKeys(fn (ReflectionMethod $method) => [$method->getName() => $this->guessRelationColumns($method)])
             ->toArray();
     }
 
 
 
-    protected function hasRelationReturnType(ReflectionMethod $method) : bool
+    protected function hasReturnType(ReflectionMethod $method, string $class) : bool
     {
+        if(!$method->isPublic() || $method->isStatic() || $method->getNumberOfParameters() !== 0){
+            return false;
+        }
+
         if ($method->getReturnType() instanceof ReflectionNamedType) {
             $returnType = $method->getReturnType()->getName();
 
-            return is_a($returnType, Relation::class, true);
+            return is_a($returnType, $class, true);
         }
 
         if ($method->getReturnType() instanceof ReflectionUnionType) {
             foreach ($method->getReturnType()->getTypes() as $type) {
                 $returnType = $type->getName();
 
-                if (is_a($returnType, Relation::class, true)) {
+                if (is_a($returnType, $class, true)) {
                     return true;
                 }
             }
