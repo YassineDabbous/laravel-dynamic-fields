@@ -1,6 +1,6 @@
 <?php
 
-namespace YassineDabbous\DynamicFields;
+namespace YassineDabbous\DynamicQuery;
 
 trait HasDynamicCore {
 
